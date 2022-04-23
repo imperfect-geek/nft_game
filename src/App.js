@@ -1,24 +1,131 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect, useState } from "react";
+import "./App.css";
+import { useDispatch, useSelector } from "react-redux";
+import { connect } from "./redux/blockchain/blockchainAction";
+import { fetchData } from "./redux/data/dataAction";
+import * as s from "./styles/globalStyles";
+import _color from "./assets/images/bg/_color.png";
+import LipRenderer from "./components/lipRenderer";
 
 function App() {
+  const dispatch = useDispatch();
+  const blockchain = useSelector((store) => store.blockchain);
+  const data = useSelector((store) => store.data);
+  const [loading, setLoading] = useState(false);
+
+  console.log(data);
+
+  const mintNFT = (_account, _name) => {
+    setLoading(true);
+    blockchain.lipToken.methods
+      .createRandomLip(_name)
+      .send({
+        from: _account,
+        value: blockchain.web3.utils.toWei("0.1", "ether"),
+      })
+      .once("error", (err) => {
+        setLoading(false);
+        console.log(err);
+      })
+      .then((receipt) => {
+        setLoading(false);
+        console.log(receipt);
+        dispatch(fetchData(blockchain.account));
+      });
+  };
+
+  const levelUpLip = (_account, _id) => {
+    setLoading(true);
+    blockchain.lipToken.methods
+      .levelUp(_id)
+      .send({
+        from: _account,
+      })
+      .once("error", (err) => {
+        setLoading(false);
+        console.log(err);
+      })
+      .then((receipt) => {
+        setLoading(false);
+        console.log(receipt);
+        dispatch(fetchData(blockchain.account));
+      });
+  };
+  useEffect(() => {
+    if (blockchain.account !== "" && blockchain.lipToken != null) {
+      dispatch(fetchData(blockchain.account));
+    }
+  }, [blockchain.account, blockchain.lipToken, dispatch]);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <s.Screen image={_color}>
+      {blockchain.account === "" || blockchain.lipToken === null ? (
+        <s.Container flex={1} ai={"center"} jc={"center"}>
+          <s.TextTitle>Connect to the game</s.TextTitle>
+          <s.SpacerSmall />
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              dispatch(connect());
+            }}
+          >
+            CONNECT
+          </button>
+          <s.SpacerXSmall />
+          {blockchain.errorMsg !== "" ? (
+            <s.TextDescription>{blockchain.errMsg}</s.TextDescription>
+          ) : null}
+        </s.Container>
+      ) : (
+        <s.Container ai={"center"} style={{ padding: "24px" }}>
+          <s.TextTitle>Welcome to the game</s.TextTitle>
+          <s.SpacerSmall />
+          <button
+            disabled={loading ? 1 : 0}
+            onClick={(e) => {
+              e.preventDefault();
+              let person = prompt("Please enter NFT's name", "");
+              if (person === null) {
+                return;
+              } else {
+                if (person !== "") mintNFT(blockchain.account, person);
+                else if (person === "") mintNFT(blockchain.account, "Unknown");
+              }
+            }}
+          >
+            CREATE NFT LIP
+          </button>
+          <s.SpacerMedium />
+          <s.Container jc={"center"} fd={"row"} style={{ flexWrap: "wrap" }}>
+            {data.allOwnerLips.map((item, index) => {
+              return (
+                <s.Container key={index} style={{ padding: "15px" }}>
+                  <LipRenderer lip={item} />
+                  <s.SpacerXSmall />
+                  <s.Container>
+                    <s.TextDescription>ID: {item.id}</s.TextDescription>
+                    <s.TextDescription>DNA: {item.dna}</s.TextDescription>
+                    <s.TextDescription>LEVEL: {item.level}</s.TextDescription>
+                    <s.TextDescription>NAME: {item.name}</s.TextDescription>
+                    <s.TextDescription>RARITY: {item.rarity}</s.TextDescription>
+                    <s.SpacerXSmall />
+                    <button
+                      disabled={loading ? 1 : 0}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        levelUpLip(blockchain.account, item.id);
+                      }}
+                    >
+                      Level Up
+                    </button>
+                  </s.Container>
+                </s.Container>
+              );
+            })}
+          </s.Container>
+        </s.Container>
+      )}
+    </s.Screen>
   );
 }
 
